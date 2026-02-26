@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VerifySafe — Live Interview Shield</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #08090d;
+    --surface: #0f1118;
+    --surface2: #161820;
+    --border: #1e2130;
+    --green: #00e5a0;
+    --green-dim: rgba(0,229,160,0.12);
+    --red: #ff3d5a;
+    --red-dim: rgba(255,61,90,0.12);
+    --amber: #ffb800;
+    --amber-dim: rgba(255,184,0,0.12);
+    --blue: #4d9fff;
+    --text: #e8eaf0;
+    --text-dim: #6b7080;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(0,229,160,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,9,13,0.95);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
+  }
+
+  .logo-shield {
+    width: 30px; height: 30px;
+    background: var(--green);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex; align-items: center; justify-content: center;
+    animation: shieldPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes shieldPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(0,229,160,0.4); }
+    50% { box-shadow: 0 0 20px 6px rgba(0,229,160,0.15); }
+  }
+
+  .logo-text { color: var(--text); }
+  .logo-text span { color: var(--green); }
+
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 2s ease-in-out infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    padding: 4px 10px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    height: calc(100vh - 61px);
+  }
+
+  /* ── VIDEO PANEL ── */
+  .video-panel {
+    position: relative;
+    background: #04050a;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .video-label {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .video-label-text {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .rec-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--red);
+  }
+
+  .rec-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: blink 1s ease-in-out infinite;
+  }
+
+  /* Fake video area */
+  .video-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .candidate-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #0a0b10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Animated face silhouette */
+  .face-container {
+    position: relative;
+    width: 220px;
+    height: 220px;
+  }
+
+  .face-svg {
+    width: 100%;
+    height: 100%;
+    opacity: 0.85;
+  }
+
+  /* Scan line overlay */
+  .scan-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    opacity: 0;
+    top: 0;
+    transition: opacity 0.3s;
+  }
+
+  .scan-line.active {
+    opacity: 1;
+    animation: scanDown 2s linear infinite;
+  }
+
+  @keyframes scanDown {
+    0% { top: 0%; }
+    100% { top: 100%; }
+  }
+
+  /* Corner brackets on video */
+  .corner {
+    position: absolute;
+    width: 24px; height: 24px;
+    border-color: var(--green);
+    border-style: solid;
+    opacity: 0.6;
+  }
+  .corner.tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
+  .corner.tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
+  .corner.bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; }
+  .corner.br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; }
+
+  /* rPPG Pulse Meter overlay */
+  .rppg-overlay {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(8,9,13,0.85);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    backdrop-filter: blur(8px);
+    min-width: 180px;
+  }
+
+  .rppg-label {
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .rppg-waveform {
+    height: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .rppg-waveform canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  .rppg-bpm {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+  }
+
+  .bpm-value {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--green);
+    transition: color 0.5s;
+  }
+
+  .bpm-unit {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+  }
+
+  /* Audio meter overlay */
+  .audio-overlay {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(8,9,13,0.85);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    backdrop-filter: blur(8px);
+  }
+
+  .audio-label {
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .audio-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 28px;
+  }
+
+  .audio-bar {
+    width: 5px;
+    border-radius: 2px;
+    background: var(--green);
+    transition: height 0.1s, background 0.3s;
+  }
+
+  /* Status banner */
+  .status-banner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 16px 32px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+    text-align: center;
+    z-index: 10;
+  }
+
+  .status-banner.show { opacity: 1; }
+
+  .status-banner.verified {
+    background: rgba(0,229,160,0.15);
+    border: 2px solid var(--green);
+    color: var(--green);
+    box-shadow: 0 0 40px rgba(0,229,160,0.2);
+  }
+
+  .status-banner.warning {
+    background: rgba(255,61,90,0.15);
+    border: 2px solid var(--red);
+    color: var(--red);
+    box-shadow: 0 0 40px rgba(255,61,90,0.2);
+  }
+
+  .status-banner.scanning {
+    background: rgba(255,184,0,0.1);
+    border: 2px solid var(--amber);
+    color: var(--amber);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: var(--surface);
+  }
+
+  .sidebar-section {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+  }
+
+  .section-title {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  /* Candidate info */
+  .candidate-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .candidate-avatar {
+    width: 44px; height: 44px;
+    border-radius: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .candidate-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+  }
+
+  .candidate-role {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  /* Metric rows */
+  .metric {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .metric:last-child { border-bottom: none; }
+
+  .metric-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text-dim);
+  }
+
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .indicator {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+
+  .ind-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .ind-amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .ind-red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .ind-grey { background: var(--text-dim); }
+
+  /* Confidence bar */
+  .confidence-bar-wrap {
+    margin-top: 4px;
+  }
+
+  .confidence-bar-bg {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .confidence-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1.5s cubic-bezier(0.4,0,0.2,1), background 0.5s;
+    width: 0%;
+  }
+
+  /* Log feed */
+  .log-feed {
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    color: var(--text-dim);
+    max-height: 140px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .log-entry {
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    animation: fadeUp 0.3s forwards;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .log-time { color: var(--text-dim); flex-shrink: 0; }
+  .log-msg { color: var(--text); }
+  .log-ok .log-msg { color: var(--green); }
+  .log-warn .log-msg { color: var(--amber); }
+  .log-err .log-msg { color: var(--red); }
+
+  /* Consent section */
+  .consent-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+  }
+
+  .consent-label {
+    font-size: 0.78rem;
+    color: var(--text);
+  }
+
+  .consent-check {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--green);
+  }
+
+  /* Controls */
+  .controls {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 13px 20px;
+    border: none;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .btn:hover::before { opacity: 0.06; }
+  .btn:active { transform: scale(0.98); }
+
+  .btn-primary {
+    background: var(--green);
+    color: #08090d;
+  }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--red);
+    color: var(--red);
+  }
+
+  .btn-reset {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  .btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Overall score ring */
+  .score-ring-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 4px 0;
+  }
+
+  .score-ring {
+    position: relative;
+    width: 56px; height: 56px;
+    flex-shrink: 0;
+  }
+
+  .score-ring svg {
+    transform: rotate(-90deg);
+  }
+
+  .score-ring-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  .score-details { flex: 1; }
+  .score-label { font-size: 0.78rem; font-weight: 700; margin-bottom: 2px; }
+  .score-sub { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); }
+
+  /* Verdict box */
+  .verdict-box {
+    border-radius: 4px;
+    padding: 12px;
+    display: none;
+    border-left: 3px solid;
+  }
+
+  .verdict-box.show { display: block; }
+
+  .verdict-box.safe {
+    background: var(--green-dim);
+    border-color: var(--green);
+  }
+
+  .verdict-box.fraud {
+    background: var(--red-dim);
+    border-color: var(--red);
+  }
+
+  .verdict-title {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .verdict-box.safe .verdict-title { color: var(--green); }
+  .verdict-box.fraud .verdict-title { color: var(--red); }
+
+  .verdict-body {
+    font-size: 0.73rem;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  /* Pause & Verify modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(4,5,10,0.92);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--red);
+    border-radius: 8px;
+    padding: 32px;
+    max-width: 440px;
+    width: 90%;
+    box-shadow: 0 0 60px rgba(255,61,90,0.15);
+    animation: modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  @keyframes modalIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .modal-icon {
+    font-size: 2rem;
+    margin-bottom: 12px;
+  }
+
+  .modal-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--red);
+    margin-bottom: 6px;
+  }
+
+  .modal-subtitle {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    margin-bottom: 20px;
+  }
+
+  .modal-flags {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .modal-flag {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--red-dim);
+    border: 1px solid rgba(255,61,90,0.2);
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+  }
+
+  .flag-icon { font-size: 1rem; }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .modal-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .modal-btn-proceed {
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+
+  .modal-btn-end {
+    background: var(--red);
+    color: white;
+  }
+
+  .modal-btn:hover { opacity: 0.85; }
+
+  /* Consent Modal */
+  .consent-modal {
+    background: var(--surface);
+    border: 1px solid var(--green);
+    border-radius: 8px;
+    padding: 32px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 0 60px rgba(0,229,160,0.1);
+    animation: modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .consent-modal .modal-title { color: var(--green); }
+
+  .consent-modal .modal-btn-end {
+    background: var(--green);
+    color: #08090d;
+  }
+
+  /* Progress steps */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    transition: color 0.3s;
+  }
+
+  .step.active { color: var(--text); }
+  .step.done { color: var(--green); }
+
+  .step-num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+
+  .step.active .step-num {
+    background: var(--amber-dim);
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .step.done .step-num {
+    background: var(--green-dim);
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .verifysafe-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    color: var(--green);
+    background: var(--green-dim);
+    border: 1px solid rgba(0,229,160,0.3);
+    border-radius: 3px;
+    padding: 2px 8px;
+    letter-spacing: 0.08em;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- CONSENT MODAL -->
+<div class="modal-overlay show" id="consentModal">
+  <div class="consent-modal">
+    <div class="modal-icon">🛡️</div>
+    <div class="modal-title">Interview Transparency Notice</div>
+    <div class="modal-subtitle">VERIFYSAFE CANDIDATE DISCLOSURE — UK GDPR ART. 9 COMPLIANT</div>
+    <p style="font-size:0.82rem; color:var(--text); line-height:1.6; margin-bottom:16px;">
+      This interview uses <strong>VerifySafe</strong> background verification technology to confirm the identity of <em>both parties</em> on this call. This protects you as a candidate from recruiter impersonation fraud, and protects the agency from synthetic identity fraud.
+    </p>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+      <div class="step done"><span class="step-num">✓</span> No recording is stored — processing is local (Edge AI)</div>
+      <div class="step done"><span class="step-num">✓</span> Biometric data is not transmitted to third parties</div>
+      <div class="step done"><span class="step-num">✓</span> You may decline — the interview will continue without biometric verification</div>
+      <div class="step done"><span class="step-num">✓</span> Both recruiter and candidate are verified equally</div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-proceed" onclick="declineConsent()">Decline Verification</button>
+      <button class="modal-btn modal-btn-end" onclick="acceptConsent()">I Consent — Begin Interview</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAUSE & VERIFY MODAL -->
+<div class="modal-overlay" id="pauseModal">
+  <div class="modal">
+    <div class="modal-icon">⚠️</div>
+    <div class="modal-title">Pause & Verify</div>
+    <div class="modal-subtitle">MULTI-MODAL ANOMALY DETECTED — HUMAN REVIEW REQUIRED</div>
+    <div class="modal-flags">
+      <div class="modal-flag">
+        <span class="flag-icon">💓</span>
+        <span>rPPG heartbeat signal not detected — biological response absent</span>
+      </div>
+      <div class="modal-flag">
+        <span class="flag-icon">🎙️</span>
+        <span>Spectral audio anomaly — voice clone signature pattern found</span>
+      </div>
+      <div class="modal-flag">
+        <span class="flag-icon">👁️</span>
+        <span>Micro-expression frequency outside biological range</span>
+      </div>
+    </div>
+    <p style="font-size:0.75rem; color:var(--text-dim); margin-bottom:20px; font-family:var(--mono);">
+      VerifySafe advises — the human recruiter decides. No automated action has been taken.
+    </p>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-proceed" onclick="closePauseModal(false)">Override — Continue</button>
+      <button class="modal-btn modal-btn-end" onclick="closePauseModal(true)">End Interview</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-shield"></div>
+    <div class="logo-text">Verify<span>Safe</span></div>
+  </div>
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div class="header-status">
+      <div class="status-dot" id="headerDot"></div>
+      <span id="headerStatus">EDGE AI ACTIVE</span>
+    </div>
+    <div class="badge">PROTOTYPE v0.1</div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- VIDEO PANEL -->
+  <div class="video-panel">
+    <div class="video-label">
+      <span class="video-label-text">Live Interview Feed — Candidate View</span>
+      <div class="rec-indicator"><div class="rec-dot"></div> LIVE</div>
+    </div>
+
+    <div class="video-area" id="videoArea">
+      <!-- Corner brackets -->
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+
+      <!-- Animated face -->
+      <div class="face-container">
+        <svg class="face-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Head -->
+          <ellipse cx="100" cy="95" rx="55" ry="65" fill="#1a1d2a" stroke="#2a2e40" stroke-width="1.5"/>
+          <!-- Neck -->
+          <rect x="82" y="155" width="36" height="25" rx="4" fill="#1a1d2a"/>
+          <!-- Shoulders -->
+          <ellipse cx="100" cy="188" rx="75" ry="20" fill="#141620"/>
+          <!-- Eyes -->
+          <ellipse cx="79" cy="88" rx="9" ry="7" fill="#0f1118" stroke="#3a3e55" stroke-width="1"/>
+          <ellipse cx="121" cy="88" rx="9" ry="7" fill="#0f1118" stroke="#3a3e55" stroke-width="1"/>
+          <circle cx="80" cy="88" r="4" fill="#4d9fff" opacity="0.8"/>
+          <circle cx="122" cy="88" r="4" fill="#4d9fff" opacity="0.8"/>
+          <!-- Pupils -->
+          <circle cx="80" cy="88" r="2" fill="#fff"/>
+          <circle cx="122" cy="88" r="2" fill="#fff"/>
+          <!-- Nose -->
+          <path d="M100 98 L94 112 Q100 116 106 112 Z" fill="#2a2e40"/>
+          <!-- Mouth -->
+          <path d="M85 128 Q100 136 115 128" stroke="#3a3e55" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <!-- rPPG highlight areas (subtle) -->
+          <ellipse id="rppgCheekL" cx="72" cy="108" rx="14" ry="10" fill="#ff6b6b" opacity="0"/>
+          <ellipse id="rppgCheekR" cx="128" cy="108" rx="14" ry="10" fill="#ff6b6b" opacity="0"/>
+          <ellipse id="rppgForehead" cx="100" cy="68" rx="20" ry="12" fill="#ff9f43" opacity="0"/>
+        </svg>
+      </div>
+
+      <!-- Scan line -->
+      <div class="scan-line" id="scanLine"></div>
+
+      <!-- Status banner -->
+      <div class="status-banner" id="statusBanner"></div>
+
+      <!-- rPPG Overlay -->
+      <div class="rppg-overlay" id="rppgOverlay">
+        <div class="rppg-label">rPPG — Heartbeat Signal</div>
+        <div class="rppg-waveform">
+          <canvas id="waveCanvas" width="150" height="28"></canvas>
+        </div>
+        <div class="rppg-bpm">
+          <span class="bpm-value" id="bpmValue">--</span>
+          <span class="bpm-unit">BPM</span>
+          <span class="verifysafe-tag" id="rppgStatus">WAITING</span>
+        </div>
+      </div>
+
+      <!-- Audio Overlay -->
+      <div class="audio-overlay" id="audioOverlay">
+        <div class="audio-label">Spectral Audio</div>
+        <div class="audio-bars" id="audioBars">
+          <div class="audio-bar" style="height:4px"></div>
+          <div class="audio-bar" style="height:4px"></div>
+          <div class="audio-bar" style="height:4px"></div>
+          <div class="audio-bar" style="height:4px"></div>
+          <div class="audio-bar" style="height:4px"></div>
+          <div class="audio-bar" style="height:4px"></div>
+          <div class="audio-bar" style="height:4px"></div>
+          <div class="audio-bar" style="height:4px"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:5px;">
+          <span class="bpm-unit">VOICE CLONE DETECT</span>
+          <span class="verifysafe-tag" id="audioStatus">WAITING</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Candidate Info -->
+    <div class="sidebar-section">
+      <div class="section-title">Candidate Profile</div>
+      <div class="candidate-card">
+        <div class="candidate-avatar">👤</div>
+        <div>
+          <div class="candidate-name">Alex Reeves</div>
+          <div class="candidate-role">Senior Software Engineer · Ref: VS-2024-0041</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <span class="verifysafe-tag">✓ Consent Given</span>
+        <span class="verifysafe-tag">Edge AI Local</span>
+        <span class="verifysafe-tag">GDPR Art.9</span>
+      </div>
+    </div>
+
+    <!-- Analysis Steps -->
+    <div class="sidebar-section">
+      <div class="section-title">Verification Pipeline</div>
+      <div class="steps" id="steps">
+        <div class="step" id="step1"><span class="step-num">1</span> Signal quality check</div>
+        <div class="step" id="step2"><span class="step-num">2</span> rPPG heartbeat analysis</div>
+        <div class="step" id="step3"><span class="step-num">3</span> Spectral audio scan</div>
+        <div class="step" id="step4"><span class="step-num">4</span> Micro-expression analysis</div>
+        <div class="step" id="step5"><span class="step-num">5</span> Confidence synthesis</div>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="sidebar-section">
+      <div class="section-title">Detection Metrics</div>
+      <div class="metric">
+        <span class="metric-label">Signal Quality</span>
+        <span class="metric-value" id="metricSignal">
+          <span class="indicator ind-grey"></span> —
+        </span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">rPPG Confidence</span>
+        <span class="metric-value" id="metricRppg">
+          <span class="indicator ind-grey"></span> —
+        </span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Audio Authenticity</span>
+        <span class="metric-value" id="metricAudio">
+          <span class="indicator ind-grey"></span> —
+        </span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Expression Natural</span>
+        <span class="metric-value" id="metricExpr">
+          <span class="indicator ind-grey"></span> —
+        </span>
+      </div>
+      <div style="margin-top:10px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span class="metric-label">Overall Trust Score</span>
+          <span class="metric-label" id="scoreLabel">—</span>
+        </div>
+        <div class="confidence-bar-bg">
+          <div class="confidence-bar-fill" id="confBar" style="background:var(--green)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score Ring -->
+    <div class="sidebar-section">
+      <div class="section-title">Live Verdict</div>
+      <div class="score-ring-wrap">
+        <div class="score-ring">
+          <svg width="56" height="56" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="22" fill="none" stroke="#1e2130" stroke-width="5"/>
+            <circle cx="28" cy="28" r="22" fill="none" stroke="var(--green)" stroke-width="5"
+              stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round"
+              id="scoreCircle" style="transition: stroke-dashoffset 1.5s cubic-bezier(0.4,0,0.2,1), stroke 0.5s;"/>
+          </svg>
+          <div class="score-ring-text" id="scoreText">—</div>
+        </div>
+        <div class="score-details">
+          <div class="score-label" id="scoreTitle">Awaiting scan</div>
+          <div class="score-sub" id="scoreSub">Run VerifySafe to begin analysis</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="verdict-box" id="verdictBox">
+          <div class="verdict-title" id="verdictTitle"></div>
+          <div class="verdict-body" id="verdictBody"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log Feed -->
+    <div class="sidebar-section" style="flex:1;">
+      <div class="section-title">Activity Log</div>
+      <div class="log-feed" id="logFeed">
+        <div class="log-entry"><span class="log-time">00:00</span><span class="log-msg">VerifySafe Edge AI initialised</span></div>
+        <div class="log-entry log-ok"><span class="log-time">00:01</span><span class="log-msg">Candidate consent confirmed</span></div>
+        <div class="log-entry"><span class="log-time">00:02</span><span class="log-msg">Awaiting scan initiation...</span></div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button class="btn btn-primary" id="btnScan" onclick="startScan(false)">▶ Run VerifySafe Scan</button>
+      <button class="btn btn-danger" id="btnFraud" onclick="startScan(true)" style="display:none">⚠ Simulate Deepfake Detection</button>
+      <button class="btn btn-reset" id="btnReset" onclick="resetAll()" style="display:none">↺ Reset Session</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ──
+let scanning = false;
+let logTime = 3;
+let animationFrame;
+let waveOffset = 0;
+let fraudMode = false;
+let audioBarsInterval;
+
+// ── Wave canvas ──
+const canvas = document.getElementById('waveCanvas');
+const ctx = canvas.getContext('2d');
+
+function drawWave(flat = false, glitchy = false) {
+  canvas.width = canvas.offsetWidth || 150;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  const points = 60;
+  for (let i = 0; i <= points; i++) {
+    const x = (i / points) * canvas.width;
+    let y;
+    if (flat) {
+      y = canvas.height / 2 + (Math.random() * 2 - 1);
+    } else if (glitchy) {
+      y = canvas.height / 2 + Math.sin((i + waveOffset) * 0.4) * 8
+        + Math.random() * 6 - 3
+        + (Math.random() > 0.9 ? (Math.random() * 20 - 10) : 0);
+    } else {
+      const heartbeat = (i % 12 === 0) ? -11 : (i % 12 === 1) ? 7 : (i % 12 === 2) ? -5 : 0;
+      y = canvas.height / 2 + Math.sin((i + waveOffset) * 0.3) * 2 + heartbeat;
+    }
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = flat ? '#6b7080' : glitchy ? '#ff3d5a' : '#00e5a0';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  waveOffset += 1;
+}
+
+function animateWave(flat = false, glitchy = false) {
+  drawWave(flat, glitchy);
+  animationFrame = requestAnimationFrame(() => animateWave(flat, glitchy));
+}
+
+function stopWave() {
+  cancelAnimationFrame(animationFrame);
+}
+
+// ── Audio bars ──
+function startAudioBars(anomaly = false) {
+  const bars = document.querySelectorAll('.audio-bar');
+  clearInterval(audioBarsInterval);
+  audioBarsInterval = setInterval(() => {
+    bars.forEach(bar => {
+      const h = anomaly
+        ? Math.random() * 20 + 4
+        : Math.random() * 22 + 2;
+      bar.style.height = h + 'px';
+      bar.style.background = anomaly
+        ? (Math.random() > 0.5 ? '#ff3d5a' : '#ffb800')
+        : '#00e5a0';
+    });
+  }, 80);
+}
+
+function stopAudioBars() {
+  clearInterval(audioBarsInterval);
+  document.querySelectorAll('.audio-bar').forEach(b => {
+    b.style.height = '3px';
+    b.style.background = '#6b7080';
+  });
+}
+
+// ── Logging ──
+function log(msg, type = '') {
+  const feed = document.getElementById('logFeed');
+  const entry = document.createElement('div');
+  entry.className = `log-entry${type ? ' log-'+type : ''}`;
+  const t = String(logTime).padStart(2, '0');
+  entry.innerHTML = `<span class="log-time">00:${t}</span><span class="log-msg">${msg}</span>`;
+  feed.appendChild(entry);
+  feed.scrollTop = feed.scrollHeight;
+  logTime++;
+}
+
+// ── Step activation ──
+function setStep(n, done = false) {
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('step' + i);
+    el.classList.remove('active', 'done');
+    if (i < n) el.classList.add('done');
+    if (i === n && !done) el.classList.add('active');
+    if (i === n && done) el.classList.add('done');
+  }
+  if (done && n === 5) {
+    for (let i = 1; i <= 5; i++) {
+      document.getElementById('step' + i).classList.add('done');
+    }
+  }
+}
+
+// ── Metric update ──
+function setMetric(id, value, color) {
+  const colors = { green: 'ind-green', amber: 'ind-amber', red: 'ind-red', grey: 'ind-grey' };
+  document.getElementById(id).innerHTML = `<span class="indicator ${colors[color]}"></span> ${value}`;
+}
+
+// ── Score ──
+function setScore(pct, color) {
+  const circle = document.getElementById('scoreCircle');
+  const circumference = 138.2;
+  circle.style.strokeDashoffset = circumference * (1 - pct / 100);
+  circle.style.stroke = color;
+  document.getElementById('scoreText').textContent = pct + '%';
+  document.getElementById('scoreText').style.color = color;
+  document.getElementById('scoreLabel').textContent = pct + '%';
+  document.getElementById('confBar').style.width = pct + '%';
+  document.getElementById('confBar').style.background = color;
+}
+
+// ── Consent actions ──
+function acceptConsent() {
+  document.getElementById('consentModal').classList.remove('show');
+  log('Candidate consent recorded — GDPR Art.9 compliant', 'ok');
+  document.getElementById('btnFraud').style.display = 'block';
+}
+
+function declineConsent() {
+  document.getElementById('consentModal').classList.remove('show');
+  log('Candidate declined biometric verification', 'warn');
+  log('Audio-only analysis mode active', 'warn');
+  document.getElementById('rppgOverlay').style.opacity = '0.4';
+  animateWave(true);
+}
+
+// ── Pause modal ──
+function showPauseModal() {
+  document.getElementById('pauseModal').classList.add('show');
+}
+
+function closePauseModal(ended) {
+  document.getElementById('pauseModal').classList.remove('show');
+  if (ended) {
+    log('Interview terminated by recruiter', 'err');
+    showVerdict(false);
+    document.getElementById('btnReset').style.display = 'block';
+  } else {
+    log('Recruiter overrode alert — interview continuing', 'warn');
+    log('Override logged for compliance audit', 'warn');
+  }
+}
+
+// ── Verdict ──
+function showVerdict(safe) {
+  const box = document.getElementById('verdictBox');
+  box.className = 'verdict-box show ' + (safe ? 'safe' : 'fraud');
+  document.getElementById('verdictTitle').textContent = safe
+    ? '✓ Identity Verified — Candidate Authentic'
+    : '⚠ Pause & Verify Triggered — Review Required';
+  document.getElementById('verdictBody').textContent = safe
+    ? 'All biometric signals consistent with a live human presenter. rPPG heartbeat detected. Voice spectrogram within natural range. Proceed with confidence.'
+    : 'Multi-modal anomaly detected. VerifySafe advises human review. No automated action taken — the recruiter decides. Incident logged for compliance.';
+}
+
+// ── rPPG face glow ──
+function startFaceGlow(anomaly = false) {
+  let t = 0;
+  function glow() {
+    t += 0.05;
+    const pulse = Math.abs(Math.sin(t * 2));
+    document.getElementById('rppgCheekL').style.opacity = anomaly ? 0 : pulse * 0.18;
+    document.getElementById('rppgCheekR').style.opacity = anomaly ? 0 : pulse * 0.18;
+    document.getElementById('rppgForehead').style.opacity = anomaly ? 0 : pulse * 0.12;
+  }
+  return setInterval(glow, 30);
+}
+
+// ── Main scan ──
+function startScan(fraud) {
+  if (scanning) return;
+  scanning = true;
+  fraudMode = fraud;
+
+  document.getElementById('btnScan').disabled = true;
+  document.getElementById('btnFraud').disabled = true;
+
+  // Scanning banner
+  const banner = document.getElementById('statusBanner');
+  banner.className = 'status-banner scanning show';
+  banner.textContent = 'VERIFYSAFE SCANNING...';
+
+  document.getElementById('scanLine').classList.add('active');
+  startAudioBars(fraud);
+
+  log('Initiating VerifySafe multi-modal scan...');
+
+  // Step 1 — Signal quality
+  setTimeout(() => {
+    setStep(1);
+    log('Checking lighting and camera resolution...');
+    animateWave(false, fraud);
+  }, 300);
+
+  setTimeout(() => {
+    setStep(1, true);
+    setMetric('metricSignal', fraud ? '62% — Marginal' : '94% — Excellent', fraud ? 'amber' : 'green');
+    log(fraud ? 'Signal quality marginal — continuing' : 'Signal quality: excellent', fraud ? 'warn' : 'ok');
+  }, 1400);
+
+  // Step 2 — rPPG
+  setTimeout(() => {
+    setStep(2);
+    log('rPPG heartbeat analysis running...');
+    const faceGlow = startFaceGlow(fraud);
+
+    setTimeout(() => {
+      clearInterval(faceGlow);
+      setStep(2, true);
+
+      if (fraud) {
+        document.getElementById('bpmValue').textContent = '--';
+        document.getElementById('bpmValue').style.color = 'var(--red)';
+        document.getElementById('rppgStatus').textContent = '✗ NOT DETECTED';
+        document.getElementById('rppgStatus').style.color = 'var(--red)';
+        document.getElementById('rppgStatus').style.background = 'rgba(255,61,90,0.15)';
+        setMetric('metricRppg', 'Absent — 0%', 'red');
+        log('rPPG: No biological heartbeat detected', 'err');
+      } else {
+        document.getElementById('bpmValue').textContent = '72';
+        document.getElementById('rppgStatus').textContent = '✓ LIVE';
+        setMetric('metricRppg', '97% — Live Human', 'green');
+        log('rPPG: Heartbeat detected — 72 BPM', 'ok');
+      }
+    }, 1200);
+  }, 2200);
+
+  // Step 3 — Audio
+  setTimeout(() => {
+    setStep(3);
+    log('Spectral audio analysis running...');
+
+    setTimeout(() => {
+      setStep(3, true);
+      stopAudioBars();
+
+      if (fraud) {
+        startAudioBars(true);
+        document.getElementById('audioStatus').textContent = '✗ ANOMALY';
+        document.getElementById('audioStatus').style.color = 'var(--red)';
+        document.getElementById('audioStatus').style.background = 'rgba(255,61,90,0.15)';
+        setMetric('metricAudio', 'Clone Detected', 'red');
+        log('Audio: Voice clone signature identified', 'err');
+      } else {
+        document.getElementById('audioStatus').textContent = '✓ NATURAL';
+        setMetric('metricAudio', '91% — Authentic', 'green');
+        log('Audio: Natural voice spectrogram confirmed', 'ok');
+      }
+    }, 1100);
+  }, 4200);
+
+  // Step 4 — Expressions
+  setTimeout(() => {
+    setStep(4);
+    log('Micro-expression frequency analysis...');
+
+    setTimeout(() => {
+      setStep(4, true);
+      setMetric('metricExpr', fraud ? 'Out of range' : '89% — Natural', fraud ? 'red' : 'green');
+      log(fraud ? 'Expression: Frequency outside biological range' : 'Micro-expressions: within natural range', fraud ? 'err' : 'ok');
+    }, 900);
+  }, 6000);
+
+  // Step 5 — Synthesis
+  setTimeout(() => {
+    setStep(5);
+    log('Synthesising confidence score...');
+
+    setTimeout(() => {
+      setStep(5, true);
+      document.getElementById('scanLine').classList.remove('active');
+      stopAudioBars();
+
+      if (fraud) {
+        stopWave();
+        animateWave(false, true);
+        setScore(11, 'var(--red)');
+        document.getElementById('scoreTitle').textContent = 'HIGH RISK — Deepfake Likely';
+        document.getElementById('scoreSub').textContent = 'Multi-modal flags triggered';
+        banner.className = 'status-banner warning show';
+        banner.textContent = '⚠ PAUSE & VERIFY';
+        log('ALERT: Confidence 11% — Deepfake likely detected', 'err');
+        log('Pause & Verify triggered — human review required', 'warn');
+
+        setTimeout(() => {
+          banner.className = 'status-banner';
+          showPauseModal();
+        }, 1800);
+      } else {
+        setScore(96, 'var(--green)');
+        document.getElementById('scoreTitle').textContent = 'VERIFIED — Authentic Human';
+        document.getElementById('scoreSub').textContent = 'All biometric signals confirmed';
+        banner.className = 'status-banner verified show';
+        banner.textContent = '✓ IDENTITY VERIFIED';
+        log('RESULT: Confidence 96% — Candidate verified as authentic', 'ok');
+        showVerdict(true);
+
+        setTimeout(() => {
+          banner.className = 'status-banner';
+          document.getElementById('btnReset').style.display = 'block';
+        }, 3000);
+      }
+    }, 1000);
+  }, 7600);
+}
+
+// ── Reset ──
+function resetAll() {
+  scanning = false;
+  fraudMode = false;
+  logTime = 3;
+
+  stopWave();
+  stopAudioBars();
+  cancelAnimationFrame(animationFrame);
+  drawWave(true);
+
+  ['step1','step2','step3','step4','step5'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('active','done');
+  });
+
+  ['metricSignal','metricRppg','metricAudio','metricExpr'].forEach(id => {
+    document.getElementById(id).innerHTML = '<span class="indicator ind-grey"></span> —';
+  });
+
+  document.getElementById('bpmValue').textContent = '--';
+  document.getElementById('bpmValue').style.color = 'var(--green)';
+  document.getElementById('rppgStatus').textContent = 'WAITING';
+  document.getElementById('rppgStatus').style.color = '';
+  document.getElementById('rppgStatus').style.background = '';
+  document.getElementById('audioStatus').textContent = 'WAITING';
+  document.getElementById('audioStatus').style.color = '';
+  document.getElementById('audioStatus').style.background = '';
+
+  const circle = document.getElementById('scoreCircle');
+  circle.style.strokeDashoffset = 138.2;
+  circle.style.stroke = 'var(--green)';
+  document.getElementById('scoreText').textContent = '—';
+  document.getElementById('scoreText').style.color = '';
+  document.getElementById('scoreLabel').textContent = '—';
+  document.getElementById('confBar').style.width = '0%';
+  document.getElementById('scoreTitle').textContent = 'Awaiting scan';
+  document.getElementById('scoreSub').textContent = 'Run VerifySafe to begin analysis';
+
+  document.getElementById('verdictBox').className = 'verdict-box';
+  document.getElementById('statusBanner').className = 'status-banner';
+
+  document.getElementById('rppgOverlay').style.opacity = '1';
+
+  const feed = document.getElementById('logFeed');
+  feed.innerHTML = '';
+  const entries = [
+    ['00','VerifySafe Edge AI initialised',''],
+    ['01','Candidate consent confirmed','ok'],
+    ['02','Awaiting scan initiation...',''],
+  ];
+  entries.forEach(([t, msg, type]) => {
+    const div = document.createElement('div');
+    div.className = `log-entry${type ? ' log-'+type : ''}`;
+    div.innerHTML = `<span class="log-time">00:${t}</span><span class="log-msg">${msg}</span>`;
+    feed.appendChild(div);
+  });
+
+  document.getElementById('btnScan').disabled = false;
+  document.getElementById('btnFraud').disabled = false;
+  document.getElementById('btnReset').style.display = 'none';
+}
+
+// ── Init ──
+drawWave(true);
+</script>
+</body>
+</html>
